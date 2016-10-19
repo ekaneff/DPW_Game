@@ -9,8 +9,16 @@ class Game {
 		this.images = [];
 		this.screen = document.querySelector("canvas");
 		this.player = null;
+		Game.finished = false;
 		this.ants = [];
 		Game.state = "playing";
+		Game.loop = null;
+		Game.snd=new Audio("assets/sounds/music.wav");
+		Game.snd.volume = 0.3;
+		this.oneMin = 15;
+		this.run = true;
+		this.display = document.querySelector('#time');
+		this.startTimer(this.oneMin, this.display, this.run);
 		Game.ctx = this.screen.getContext("2d");
 		this.loadAssets(["grass.png","ant-leftfacing.png", "ant-rightfacing.png", "bug.png"]); 
 
@@ -18,8 +26,11 @@ class Game {
 
 	init() {
 		console.log("Initializing...");
+		Game.snd.play();
 		this.screen.style.background = "url(" + this.images[0].src + ")";
-		this.player = new Player(this.images[3]);
+		//this.player = new Player(this.images[3]);
+		GameFactory.images = this.images;
+		this.player= GameFactory.createObject("player");
 		this.player.x = 400;
 		this.player.y = 550;
 		this.player.setScale(.21);
@@ -28,6 +39,32 @@ class Game {
 		this.key = new Key();
 		this.key.init();
 		this.updateAll();
+		
+	}
+
+	startTimer(duration, display, run){
+		if (run){
+			var timer = duration, minutes, seconds;
+			Game.loop = setInterval(function(){
+				minutes = parseInt(timer / 60, 10);
+				seconds = parseInt(timer % 60, 10);
+
+				minutes = minutes < 10 ? "0" + minutes : minutes;
+		        seconds = seconds < 10 ? "0" + seconds : seconds;
+
+		        display.innerHTML = minutes + ":" + seconds;
+
+		        if (--timer < 0) {
+		        	window.clearInterval(Game.loop);
+		        	Game.state = "over";
+		            alert("Time has run out!");
+		            
+		        } 
+			}, 1000);
+		} else {
+			Game.state = "over";
+			alert("Game over!");
+		}
 	}
 
 	makeAnts() {
@@ -36,7 +73,7 @@ class Game {
 		for (var j=0;j<3;j++) {
             for (var i=0;i<7;i++) {
             	if (j == 0) {
-            		tempSpeed = 4;
+            		tempSpeed = 3;
             	} else if (j == 1) {
             		tempSpeed=-3;
             		tempImg = this.images[1];
@@ -77,19 +114,64 @@ class Game {
 		})();
 	}
 
+	getDistance(obj){
+		var dx = this.player.x - obj.x;
+        var dy = this.player.y - obj.y;
+
+        var d = Math.sqrt(dx*dx+dy*dy); //pothagorean theorm 
+
+        return d; 
+	}
+
 	updateAll() {
 		var that = this;
 
 		(function drawFrame(){ //ask what this really does
 			window.requestAnimationFrame(drawFrame);
 			Game.ctx.clearRect(0,0,that.screen.width, that.screen.height);
+
+			// ===========================
+			//       GAME OVER THING
+			// ===========================
 			if (Game.state == "playing"){
 				that.ants.forEach((el) => {
+					if (el.alive) {
+						if(that.getDistance(el) < 50) {
+	                        console.log("the ant was hit");
+	                        el.hit(that.player);
+	                        Game.state = "over";
+	                        that.run = false;
+	                        Game.snd.pause();
+							Game.snd.currentTime = 0;
+	                        that.player.speed = 0;
+	                        window.clearInterval(Game.loop);
+	                        alert("game over!");
+	                    }
+					}
 	                el.update();
 	            });
-
 				that.player.update();
-			} 
+			} else if (Game.state == "over") {
+				that.ants.speedX = 0;
+				Game.snd.pause();
+				Game.snd.currentTime = 0;
+				//Game.state = "over";
+	            that.run = false;
+	            //alert("game over!");
+	            that.player.speed = 0;
+	            window.clearInterval(Game.loop);
+				//that.ants.update();
+				// that.player.update();
+			} else {
+				that.run = false;
+				that.player.speed = 0;
+				that.ants.speedX = 0;
+				window.clearInterval(Game.loop);
+				//console.log("You win!");
+			}
+
+			that.player.update();
+			//that.ant.update();
 		})();
 	}
 
@@ -116,6 +198,7 @@ class Sprite {
         this.rotate = 0;
         this.image = img;
         this.ctx = Game.ctx; 
+        this.alive = true;
 	}
 
 	setScale(num) {
@@ -130,7 +213,7 @@ class Sprite {
 		var rad = this.rotate * .01745;
 
 		// this.x = this.x % (800 + (this.image.width*.5));
-  //       this.y = this.y % (600 + (this.image.height*.5));
+  		// this.y = this.y % (600 + (this.image.height*.5));
 
 
 		this.ctx.translate(this.x, this.y); //do converstions before actions
@@ -153,7 +236,7 @@ class Player extends Sprite {
 		super(img);
 		//this.speedX = 0;
 		//this.speedY = 0;
-		this.speed = 3;
+		this.speed = 1.5;
 	}
 
 	update(){
@@ -175,8 +258,16 @@ class Player extends Sprite {
 
 	    if (this.y <= 70) {
 	    	this.speed = 0;
-	    	Game.state = "over";
-	    	console.log("you finished!");
+	    	//cannot acces timer here, also cannot place finished alert here and I 
+	    	//dont know where else to put it.
+	    	Game.state = "finished";
+	    	if (Game.finished == false && Game.state == "finished") {
+	    		Game.finished = true;
+	    		alert("you finished!");
+	    		
+	    	}
+	    	
+	    	
 	    }
      	this.draw();
 	}
@@ -191,6 +282,11 @@ class Ant extends Sprite {
 	update(){
 		this.x += this.speedX;
      	this.draw();
+	}
+
+	hit(obj) {
+		this.speed = 0;
+		this.alive = false;
 	}
 
 }
@@ -220,5 +316,18 @@ class Key {
     }
 }
 
+class GameFactory {
+	constructor() {}
+
+	 static createObject(str) {
+        if (str == "player") {
+            return new Player(GameFactory.images[3]);
+        } else {
+            throw "wtf";
+        }
+    }
+}
+
+GameFactory.images =[];
 
 

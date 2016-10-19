@@ -1,5 +1,6 @@
 body{
   background-color:rgba(0,0,0,1.00);
+  font-family: 'Inconsolata',;
 }
 
 #container{
@@ -15,6 +16,11 @@ body{
 				#333 10px,
 				#333 20px);
 	border: thick solid #FFF;
+}
+
+#timer, #time {
+	font-size: 30px;
+	text-align: center;
 }
 
 header {
